@@ -1,8 +1,13 @@
-from dotenv import load_dotenv
-import os
+"""
+Legacy config module - redirects to core.config.
 
-load_dotenv()
-class Config:
-    API_KEY = os.getenv('API_KEY')
+Для нового кода используйте: from core.config import settings
+"""
 
-config_env = Config()
+from core.config import settings
+
+# Legacy compatibility
+config_env = settings
+API_KEY = settings.API_KEY if hasattr(settings, 'API_KEY') else None
+
+__all__ = ["settings", "config_env", "API_KEY"]

@@ -5,6 +5,8 @@ FastAPI приложение с асинхронной поддержкой SQLA
 - Lifespan events для инициализации/закрытия БД
 - Dependency injection для сессий
 - Health check endpoint
+- Streaming ответы от Gemini
+- JWT аутентификация
 """
 
 from collections.abc import AsyncGenerator
@@ -12,9 +14,13 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import close_db, get_db_session, init_db
+from routers.auth import router as auth_router
+from routers.chats import router as chats_router
 
 
 @asynccontextmanager
@@ -40,6 +46,22 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json",
 )
+
+# CORS middleware (для фронтенда)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Настройте для production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Security схемы для Swagger UI
+security = HTTPBearer(auto_error=False)
+
+# Подключаем роутеры
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(chats_router, prefix="/api/v1")
 
 
 @app.get(

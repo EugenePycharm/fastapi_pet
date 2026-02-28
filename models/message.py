@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import DateTime, Index, Text, Uuid, event
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base, CreatedAt
@@ -50,6 +50,7 @@ class Message(Base):
     # Foreign Keys
     chat_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
+        ForeignKey("chats.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
         comment="ID чата",
@@ -57,10 +58,10 @@ class Message(Base):
 
     # Поля сообщения
     role: Mapped[MessageRole] = mapped_column(
-        default=MessageRole.USER,
         nullable=False,
         index=True,
         comment="Роль отправителя",
+        type_=String(20),  # Используем String вместо Enum для избежания проблем
     )
     content: Mapped[str] = mapped_column(
         Text,

@@ -290,3 +290,6 @@ poetry.toml
 pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python,pycharm
+/.idea/fastapi_pet.iml
+/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/vcs.xml

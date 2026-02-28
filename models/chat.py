@@ -6,9 +6,9 @@
 """
 
 import uuid
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Index, String, Text, Uuid
+from sqlalchemy import ForeignKey, Index, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base, CreatedAt, UpdatedAt
@@ -42,6 +42,7 @@ class Chat(Base):
     # Foreign Keys
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
         comment="ID владельца чата",

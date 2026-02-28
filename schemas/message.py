@@ -22,9 +22,11 @@ class MessageBase(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    role: MessageRole = Field(
+    role: str = Field(
         ...,
         description="Роль отправителя",
+        examples=["user"],
+        pattern="^(user|assistant|system)$",
     )
     content: str = Field(
         ...,

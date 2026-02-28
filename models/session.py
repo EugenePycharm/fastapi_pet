@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, DateTime, Index, String, Text, Uuid
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base, CreatedAt
@@ -44,6 +44,7 @@ class Session(Base):
     # Foreign Keys
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
         comment="ID пользователя",

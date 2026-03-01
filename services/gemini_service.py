@@ -49,7 +49,7 @@ class GeminiService:
             system_prompt: Системный промпт (опционально)
 
         Yields:
-            Части ответа (chunks)
+            Части ответа (chunks) - по одному символу для плавного отображения
         """
         chat = self._get_chat()
 
@@ -64,10 +64,18 @@ class GeminiService:
             lambda: chat.send_message_stream(message),
         )
 
-        # Итерируем по частям
+        # Собираем весь текст из streaming response
+        full_text = ""
         for chunk in response:
             if chunk.text:
-                yield chunk.text
+                full_text += chunk.text
+
+        # Теперь отдаём посимвольно с правильной async задержкой
+        for i, char in enumerate(full_text):
+            yield char
+            # Задержка каждые 3 символа для создания эффекта печати
+            if i % 3 == 0:
+                await asyncio.sleep(0.01)
 
     def _has_system_prompt(self, chat) -> bool:
         """Проверяет, есть ли уже системный промпт в истории."""

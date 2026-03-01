@@ -11,6 +11,7 @@ Endpoints:
 Все endpoints требуют аутентификацию.
 """
 
+import asyncio
 import json
 import uuid
 from datetime import datetime, timezone
@@ -171,17 +172,24 @@ async def send_message_stream(
         db.add(assistant_message)
 
         full_response = ""
+        buffer = ""
+        min_chunk_size = 10  # Минимальный размер чанка для отправки
 
         try:
             async for chunk in gemini_service.stream_response(message_data.content):
                 full_response += chunk
-                # Формируем SSE событие
+                buffer += chunk
+                
+                # Отправляем чанк сразу, не накапливаем
                 event_data = {
                     "type": "chunk",
                     "content": chunk,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
                 yield f"data: {json.dumps(event_data)}\n\n"
+                
+                # Принудительно сбрасываем буфер
+                await asyncio.sleep(0.01)  # Минимальная задержка для real-time эффекта
 
             # Сохраняем полный ответ
             assistant_message.content = full_response
@@ -201,7 +209,8 @@ async def send_message_stream(
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Отключаем буферизацию nginx
+            "X-Accel-Buffering": "no",
+            "Transfer-Encoding": "chunked",
         },
     )
 

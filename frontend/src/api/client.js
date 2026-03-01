@@ -224,6 +224,25 @@ class ApiClient {
 
     return fullContent;
   }
+
+  // Settings endpoints
+  async getSettings() {
+    return this.request('/settings');
+  }
+
+  async updateSettings(settingsData) {
+    return this.request('/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settingsData),
+    });
+  }
+
+  async testApiKey(apiKey) {
+    return this.request('/settings/test-api-key', {
+      method: 'POST',
+      body: JSON.stringify({ api_key: apiKey }),
+    });
+  }
 }
 
 export const apiClient = new ApiClient();

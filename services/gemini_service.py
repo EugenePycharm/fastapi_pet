@@ -5,11 +5,13 @@
 - Потоковую передачу ответов (streaming)
 - Управление историей чата
 - Контекст диалога
+- Пользовательские API ключи
+- Выбор модели
 """
 
 import asyncio
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Any, Optional
 
 from google import genai
 from google.genai import types
@@ -20,25 +22,26 @@ from config import config_env
 class GeminiService:
     """Сервис для взаимодействия с Google Gemini."""
 
-    def __init__(self, model: str = "gemini-2.5-flash-lite"):
-        self.client = genai.Client(api_key=config_env.API_KEY)
-        self.model = model
-        self._chat = None
+    DEFAULT_MODELS = [
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-flash",
+        "gemini-3-flash-preview",
+    ]
 
-    def _get_chat(self):
-        """Получает или создаёт чат с Gemini."""
-        if self._chat is None:
-            self._chat = self.client.chats.create(
-                model=self.model,
-                config=types.GenerateContentConfig(
-                    thinking_config=types.ThinkingConfig(thinking_budget=0)
-                ),
-            )
-        return self._chat
+    def __init__(self):
+        self.default_api_key = config_env.API_KEY
+        self.default_model = "gemini-2.5-flash-lite"
+
+    def get_client(self, api_key: Optional[str] = None) -> genai.Client:
+        """Получает клиент Gemini с указанным API ключом."""
+        key = api_key or self.default_api_key
+        return genai.Client(api_key=key)
 
     async def stream_response(
         self,
         message: str,
+        model: Optional[str] = None,
+        api_key: Optional[str] = None,
         system_prompt: str | None = None,
     ) -> AsyncGenerator[str, None]:
         """
@@ -46,15 +49,26 @@ class GeminiService:
 
         Args:
             message: Сообщение пользователя
+            model: Модель Gemini (по умолчанию gemini-2.5-flash-lite)
+            api_key: Персональный API ключ (опционально)
             system_prompt: Системный промпт (опционально)
 
         Yields:
             Части ответа (chunks) - по одному символу для плавного отображения
         """
-        chat = self._get_chat()
+        client = self.get_client(api_key)
+        model_name = model or self.default_model
+
+        # Создаём чат
+        chat = client.chats.create(
+            model=model_name,
+            config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_budget=0)
+            ),
+        )
 
         # Добавляем system prompt если есть
-        if system_prompt and not self._has_system_prompt(chat):
+        if system_prompt:
             chat.send_message(f"System instruction: {system_prompt}")
 
         # Потоковая передача ответа
@@ -77,30 +91,23 @@ class GeminiService:
             if i % 3 == 0:
                 await asyncio.sleep(0.01)
 
-    def _has_system_prompt(self, chat) -> bool:
-        """Проверяет, есть ли уже системный промпт в истории."""
-        history = chat.get_history()
-        if not history:
+    async def test_api_key(self, api_key: str) -> bool:
+        """
+        Тестирует API ключ на валидность.
+
+        Returns:
+            True если ключ действителен, False иначе
+        """
+        try:
+            client = self.get_client(api_key)
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: client.models.list(),
+            )
+            return True
+        except Exception:
             return False
-        # Проверяем первое сообщение
-        first_message = history[0]
-        if first_message.parts:
-            text = first_message.parts[0].text or ""
-            return text.startswith("System instruction:")
-        return False
-
-    def get_history(self) -> list[dict[str, str]]:
-        """Получает историю чата."""
-        chat = self._get_chat()
-        history = chat.get_history()
-        return [
-            {"role": msg.role, "content": msg.parts[0].text if msg.parts else ""}
-            for msg in history
-        ]
-
-    def clear_history(self) -> None:
-        """Очищает историю чата."""
-        self._chat = None
 
 
 # Глобальный экземпляр сервиса

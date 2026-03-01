@@ -7,7 +7,7 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Boolean, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -17,6 +17,7 @@ from db.base import Base, CreatedAt, UpdatedAt
 if TYPE_CHECKING:
     from models.chat import Chat
     from models.session import Session
+    from models.user_settings import UserSettings
 
 
 class User(Base):
@@ -75,6 +76,12 @@ class User(Base):
     )
     chats: Mapped[list["Chat"]] = relationship(
         "Chat",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    settings: Mapped[Optional["UserSettings"]] = relationship(
+        "UserSettings",
         back_populates="user",
         cascade="all, delete-orphan",
         lazy="selectin",

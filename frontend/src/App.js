@@ -6,6 +6,7 @@ import LoginForm from './pages/LoginForm';
 import RegisterForm from './pages/RegisterForm';
 import ChatList from './pages/ChatList';
 import Chat from './pages/Chat';
+import SettingsPage from './pages/SettingsPage';
 
 // Компонент для защиты роутов
 const ProtectedRoute = ({ children }) => {
@@ -87,6 +88,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Chat />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <SettingsPage />
           </ProtectedRoute>
         }
       />

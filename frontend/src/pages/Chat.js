@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -12,12 +12,15 @@ import {
   Alert,
   CircularProgress,
   Avatar,
+  Fab,
+  Zoom,
 } from '@mui/material';
 import {
   Send as SendIcon,
   ArrowBack as ArrowBackIcon,
   SmartToy as SmartToyIcon,
   Person as PersonIcon,
+  KeyboardArrowDown as ArrowDownIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../api/client';
@@ -34,10 +37,11 @@ const Chat = () => {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [streamingMessage, setStreamingMessage] = useState('');
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  const loadChat = React.useCallback(async () => {
+  const loadChat = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiClient.getChat(chatId);
@@ -51,22 +55,37 @@ const Chat = () => {
     }
   }, [chatId]);
 
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
   useEffect(() => {
     loadChat();
   }, [loadChat]);
 
-  // Скролл вниз только при новых сообщениях (не при загрузке)
+  // Скролл вниз только при новых сообщениях
   useEffect(() => {
     if (messages.length > 0 || streamingMessage) {
       scrollToBottom();
     }
   }, [messages.length, streamingMessage]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-  };
+  // Отслеживание прокрутки для кнопки "Вниз"
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const scrollHeight = document.documentElement.scrollHeight;
+      const clientHeight = document.documentElement.clientHeight;
+      // Показываем кнопку если прокрутили больше 300px от низа
+      const scrolledFromBottom = scrollHeight - scrollTop - clientHeight;
+      setShowScrollButton(scrolledFromBottom > 300);
+    };
 
-  const handleSendMessage = async () => {
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const handleSendMessage = useCallback(async () => {
     if (!inputValue.trim() || sending) return;
 
     const userMessage = {
@@ -76,13 +95,12 @@ const Chat = () => {
       created_at: new Date().toISOString(),
     };
 
-    setMessages([...messages, userMessage]);
+    setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setSending(true);
     setStreamingMessage('');
 
     try {
-      // Используем streaming для получения ответа
       let assistantContent = '';
       await apiClient.sendMessageStream(
         chatId,
@@ -94,7 +112,6 @@ const Chat = () => {
         }
       );
 
-      // Добавляем сообщение ассистента
       const assistantMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
@@ -102,29 +119,26 @@ const Chat = () => {
         created_at: new Date().toISOString(),
       };
 
-      setMessages([...messages, userMessage, assistantMessage]);
+      setMessages(prev => [...prev, assistantMessage]);
       setStreamingMessage('');
-
-      // Обновляем чат для получения актуальных данных
       await loadChat();
     } catch (err) {
       setError(err.message);
-      // Удаляем временное сообщение пользователя при ошибке
-      setMessages(messages);
+      setMessages(prev => prev.slice(0, -1));
     } finally {
       setSending(false);
       inputRef.current?.focus();
     }
-  };
+  }, [inputValue, sending, chatId, loadChat]);
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
-  };
+  }, [handleSendMessage]);
 
-  const renderMessage = (message, index) => {
+  const renderMessage = useCallback((message, index) => {
     const isUser = message.role === 'user';
     const isStreaming = index === messages.length - 1 && streamingMessage && !isUser;
     const messageContent = isStreaming ? streamingMessage : message.content;
@@ -213,13 +227,14 @@ const Chat = () => {
         )}
       </Box>
     );
-  };
+  }, [streamingMessage, messages.length]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <CssBaseline />
 
-      <AppBar position="static">
+      {/* Fixed AppBar - закреплён вверху */}
+      <AppBar position="fixed" sx={{ top: 0, zIndex: 1200 }}>
         <Toolbar>
           <IconButton
             edge="start"
@@ -239,18 +254,22 @@ const Chat = () => {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="lg" sx={{ mt: 3, mb: 3 }}>
+      {/* Spacer для AppBar */}
+      <Toolbar />
+
+      <Container maxWidth="lg" sx={{ mt: 2, mb: 2, flexGrow: 1 }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
             {error}
           </Alert>
         )}
 
+        {/* Блок с сообщениями - без прокрутки, часть страницы */}
         <Paper
           elevation={3}
           sx={{
             p: 3,
-            minHeight: '80vh',
+            mb: 2,
           }}
         >
           {loading ? (
@@ -278,7 +297,7 @@ const Chat = () => {
             </Box>
           ) : (
             <>
-              <Box sx={{ mb: 2 }}>
+              <Box>
                 {messages.map((message, index) => renderMessage(message, index))}
                 {streamingMessage && (
                   <Box
@@ -313,7 +332,24 @@ const Chat = () => {
           )}
         </Paper>
 
-        <Paper elevation={3} sx={{ p: 2, mt: 3, mb: 2 }}>
+        {/* Spacer для фиксированного поля ввода */}
+        <Box sx={{ height: 100 }} />
+      </Container>
+
+      {/* Fixed поле ввода - закреплено внизу */}
+      <Paper
+        elevation={3}
+        sx={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          p: 2,
+          zIndex: 1100,
+          backgroundColor: 'background.paper',
+        }}
+      >
+        <Container maxWidth="lg">
           <Box sx={{ display: 'flex', gap: 1 }}>
             <TextField
               ref={inputRef}
@@ -326,6 +362,7 @@ const Chat = () => {
               onKeyPress={handleKeyPress}
               disabled={sending}
               variant="outlined"
+              sx={{ '& .MuiInputBase-root': { backgroundColor: 'background.paper' } }}
             />
             <IconButton
               color="primary"
@@ -337,8 +374,26 @@ const Chat = () => {
               {sending ? <CircularProgress size={24} /> : <SendIcon />}
             </IconButton>
           </Box>
-        </Paper>
-      </Container>
+        </Container>
+      </Paper>
+
+      {/* Кнопка "Вниз" */}
+      <Zoom in={showScrollButton}>
+        <Fab
+          color="primary"
+          size="medium"
+          onClick={scrollToBottom}
+          sx={{
+            position: 'fixed',
+            bottom: 100,
+            right: 24,
+            zIndex: 1201,
+            boxShadow: 3,
+          }}
+        >
+          <ArrowDownIcon />
+        </Fab>
+      </Zoom>
 
       <style>
         {`

@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import close_db, get_db_session, init_db
 from routers.auth import router as auth_router
 from routers.chats import router as chats_router
+from routers.settings import router as settings_router
 
 
 @asynccontextmanager
@@ -62,6 +63,7 @@ security = HTTPBearer(auto_error=False)
 # Подключаем роутеры
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(chats_router, prefix="/api/v1")
+app.include_router(settings_router, prefix="/api/v1")
 
 
 @app.get(

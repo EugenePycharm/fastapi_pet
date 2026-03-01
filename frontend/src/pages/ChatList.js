@@ -27,6 +27,7 @@ import {
   Delete as DeleteIcon,
   Chat as ChatIcon,
   Logout as LogoutIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
@@ -101,6 +102,9 @@ const ChatList = () => {
           <Typography variant="body2" sx={{ mr: 2 }}>
             {user?.email}
           </Typography>
+          <IconButton color="inherit" onClick={() => navigate('/settings')}>
+            <SettingsIcon />
+          </IconButton>
           <ThemeToggle />
           <IconButton color="inherit" onClick={handleLogout}>
             <LogoutIcon />

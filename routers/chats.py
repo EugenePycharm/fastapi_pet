@@ -133,6 +133,8 @@ async def send_message_stream(
     Возвращает Server-Sent Events (SSE) поток.
     Требует аутентификацию.
     """
+    from models.user_settings import UserSettings
+
     # Проверяем существование чата и принадлежность пользователю
     result = await db.execute(
         select(Chat).where(
@@ -147,6 +149,16 @@ async def send_message_stream(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Chat not found",
         )
+
+    # Получаем настройки пользователя
+    settings_result = await db.execute(
+        select(UserSettings).where(UserSettings.user_id == current_user.id)
+    )
+    user_settings = settings_result.scalar_one_or_none()
+
+    # Получаем API ключ и модель из настроек
+    api_key = user_settings.api_key if user_settings else None
+    model = user_settings.model if user_settings else "gemini-2.5-flash-lite"
 
     # Конвертируем роль в enum (берём value из Enum)
     role_value = message_data.role.value if hasattr(message_data.role, 'value') else message_data.role
@@ -172,14 +184,14 @@ async def send_message_stream(
         db.add(assistant_message)
 
         full_response = ""
-        buffer = ""
-        min_chunk_size = 10  # Минимальный размер чанка для отправки
 
         try:
-            async for chunk in gemini_service.stream_response(message_data.content):
+            async for chunk in gemini_service.stream_response(
+                message_data.content,
+                model=model,
+                api_key=api_key,
+            ):
                 full_response += chunk
-                buffer += chunk
-                
                 # Отправляем чанк сразу, не накапливаем
                 event_data = {
                     "type": "chunk",
